@@ -7,6 +7,9 @@ let
   }) { inherit pkgs; };
 in pkgs.mkShell {
   buildInputs = [
+    pkgs.go
+    pkgs.jsonnet
+    pkgs.yq
     pkgs.nodejs
   ];  # join lists with ++
 
