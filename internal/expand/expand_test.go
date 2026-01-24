@@ -3,6 +3,8 @@ package expand
 import (
 	"reflect"
 	"testing"
+
+	"dirschema/internal/schema"
 )
 
 func TestExpandSimpleDSL(t *testing.T) {
@@ -34,11 +36,11 @@ func TestExpandSimpleDSL(t *testing.T) {
 				"properties": map[string]any{
 					"main.go": existenceSchema,
 				},
-				"required": []string{"main.go"},
+				"required": []any{"main.go"},
 			},
 			"README.md": existenceSchema,
 		},
-		"required": []string{"README.md", "src/"},
+		"required": []any{"README.md", "src/"},
 	}
 
 	if !reflect.DeepEqual(got, want) {
@@ -64,10 +66,10 @@ func TestExpandSymlinkDSL(t *testing.T) {
 				"properties": map[string]any{
 					"symlink": map[string]any{"const": "target.txt"},
 				},
-				"required": []string{"symlink"},
+				"required": []any{"symlink"},
 			},
 		},
-		"required": []string{"link.txt"},
+		"required": []any{"link.txt"},
 	}
 
 	if !reflect.DeepEqual(got, want) {
@@ -133,10 +135,10 @@ func TestExpandContentDSL(t *testing.T) {
 				"properties": map[string]any{
 					"content": map[string]any{"const": "key=value"},
 				},
-				"required": []string{"content"},
+				"required": []any{"content"},
 			},
 		},
-		"required": []string{"config.txt"},
+		"required": []any{"config.txt"},
 	}
 
 	if !reflect.DeepEqual(got, want) {
@@ -198,10 +200,10 @@ func TestExpandSha256DSL(t *testing.T) {
 				"properties": map[string]any{
 					"sha256": map[string]any{"const": "abc123def456"},
 				},
-				"required": []string{"sha256"},
+				"required": []any{"sha256"},
 			},
 		},
-		"required": []string{"data.bin"},
+		"required": []any{"data.bin"},
 	}
 
 	if !reflect.DeepEqual(got, want) {
@@ -274,12 +276,129 @@ func TestExpandCombinedConstraints(t *testing.T) {
 	props := got["properties"].(map[string]any)
 	fileSchema := props["file.txt"].(map[string]any)
 	fileProps := fileSchema["properties"].(map[string]any)
-	required := fileSchema["required"].([]string)
+	required := fileSchema["required"].([]any)
 
 	if len(fileProps) != 3 {
 		t.Fatalf("expected 3 properties, got %d", len(fileProps))
 	}
 	if len(required) != 3 {
 		t.Fatalf("expected 3 required, got %d", len(required))
+	}
+}
+
+// TestExpandOutputPassesMetaSchema validates that all expanded schemas
+// conform to the meta-schema. This ensures the expansion produces
+// correctly shaped output for all entry types.
+func TestExpandOutputPassesMetaSchema(t *testing.T) {
+	tests := []struct {
+		name string
+		dsl  map[string]any
+	}{
+		{
+			name: "existence-only file",
+			dsl: map[string]any{
+				"README.md": true,
+			},
+		},
+		{
+			name: "nil file (implicit existence)",
+			dsl: map[string]any{
+				"file.txt": nil,
+			},
+		},
+		{
+			name: "symlink",
+			dsl: map[string]any{
+				"link.txt": map[string]any{"symlink": "target.txt"},
+			},
+		},
+		{
+			name: "content",
+			dsl: map[string]any{
+				"config.ini": map[string]any{"content": "[app]\nkey=value"},
+			},
+		},
+		{
+			name: "sha256",
+			dsl: map[string]any{
+				"data.bin": map[string]any{"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+			},
+		},
+		{
+			name: "size exact",
+			dsl: map[string]any{
+				"file.dat": map[string]any{"size": float64(1024)},
+			},
+		},
+		{
+			name: "size range",
+			dsl: map[string]any{
+				"file.dat": map[string]any{"size": map[string]any{"min": float64(0), "max": float64(1000)}},
+			},
+		},
+		{
+			name: "combined content+size+sha256",
+			dsl: map[string]any{
+				"file.txt": map[string]any{
+					"content": "hello",
+					"size":    float64(5),
+					"sha256":  "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+				},
+			},
+		},
+		{
+			name: "directory with files",
+			dsl: map[string]any{
+				"src/": map[string]any{
+					"main.go": true,
+					"lib.go":  true,
+				},
+			},
+		},
+		{
+			name: "nested directories",
+			dsl: map[string]any{
+				"project/": map[string]any{
+					"src/": map[string]any{
+						"main.go": true,
+					},
+					"README.md": map[string]any{"content": "# Project"},
+				},
+			},
+		},
+		{
+			name: "list form DSL",
+			dsl: map[string]any{
+				"dir/": []any{
+					"file1.txt",
+					"file2.txt",
+					map[string]any{"config.ini": map[string]any{"content": "key=value"}},
+				},
+			},
+		},
+		{
+			name: "mixed entry types",
+			dsl: map[string]any{
+				"README.md":  true,
+				"config.ini": map[string]any{"content": "[app]"},
+				"link":       map[string]any{"symlink": "README.md"},
+				"src/": map[string]any{
+					"main.go": true,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			expanded, err := ExpandDSL(tc.dsl)
+			if err != nil {
+				t.Fatalf("ExpandDSL: %v", err)
+			}
+
+			if err := schema.ValidateSchema(expanded); err != nil {
+				t.Fatalf("meta-schema validation failed: %v", err)
+			}
+		})
 	}
 }

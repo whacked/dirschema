@@ -2,22 +2,113 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://dirschema.local/meta.json",
   "title": "dirschema meta-schema",
-  "description": "Validates basic structure of expanded dirschema schemas",
-  "type": "object",
-  "properties": {
-    "type": {
-      "const": "object"
-    },
-    "properties": {
+  "description": "Validates structure of expanded dirschema schemas",
+  "$ref": "#/$defs/directorySchema",
+  "$defs": {
+    "directorySchema": {
+      "description": "Schema for a directory (root or nested)",
       "type": "object",
-      "additionalProperties": {
-        "type": "object"
-      }
+      "properties": {
+        "type": {"const": "object"},
+        "properties": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/entrySchema"}
+        },
+        "required": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "required": ["type", "properties", "required"],
+      "additionalProperties": false
     },
-    "required": {
-      "type": "array",
-      "items": {"type": "string"}
+    "entrySchema": {
+      "description": "Schema for a file or directory entry",
+      "anyOf": [
+        {"$ref": "#/$defs/existenceOnlyFile"},
+        {"$ref": "#/$defs/fileDescriptor"},
+        {"$ref": "#/$defs/directorySchema"}
+      ]
+    },
+    "existenceOnlyFile": {
+      "description": "File that just needs to exist (no constraints)",
+      "type": "object",
+      "properties": {
+        "oneOf": {
+          "type": "array",
+          "items": [
+            {
+              "type": "object",
+              "properties": {"const": {"const": true}},
+              "required": ["const"]
+            },
+            {
+              "type": "object",
+              "properties": {"type": {"const": "object"}},
+              "required": ["type"]
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": ["oneOf"],
+      "additionalProperties": false
+    },
+    "fileDescriptor": {
+      "description": "File with content, symlink, size, or sha256 constraints",
+      "type": "object",
+      "properties": {
+        "type": {"const": "object"},
+        "properties": {
+          "type": "object",
+          "properties": {
+            "content": {"$ref": "#/$defs/constStringSchema"},
+            "symlink": {"$ref": "#/$defs/constStringSchema"},
+            "size": {"$ref": "#/$defs/sizeSchema"},
+            "sha256": {"$ref": "#/$defs/constStringSchema"}
+          },
+          "additionalProperties": false
+        },
+        "required": {
+          "type": "array",
+          "items": {"enum": ["content", "symlink", "size", "sha256"]}
+        }
+      },
+      "required": ["type", "properties", "required"],
+      "additionalProperties": false
+    },
+    "constStringSchema": {
+      "description": "Schema with const string value",
+      "type": "object",
+      "properties": {
+        "const": {"type": "string"}
+      },
+      "required": ["const"],
+      "additionalProperties": false
+    },
+    "sizeSchema": {
+      "description": "Schema for size constraint (exact or range)",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "const": {"type": "integer"}
+          },
+          "required": ["const"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {"const": "integer"},
+            "minimum": {"type": "integer"},
+            "maximum": {"type": "integer"}
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        }
+      ]
     }
-  },
-  "required": ["type", "properties", "required"]
+  }
 }

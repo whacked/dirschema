@@ -22,7 +22,7 @@ func expandDir(node map[string]any) (map[string]any, error) {
 	sort.Strings(keys)
 
 	properties := make(map[string]any, len(node))
-	required := make([]string, 0, len(node))
+	required := make([]any, 0, len(node))
 
 	for _, key := range keys {
 		value := node[key]
@@ -42,9 +42,9 @@ func expandDir(node map[string]any) (map[string]any, error) {
 	}
 
 	return map[string]any{
-		"type":                 "object",
-		"properties":           properties,
-		"required":             required,
+		"type":       "object",
+		"properties": properties,
+		"required":   required,
 	}, nil
 }
 
@@ -111,14 +111,14 @@ func expandFileDescriptor(key string, obj map[string]any) (map[string]any, error
 			"properties": map[string]any{
 				"symlink": map[string]any{"const": target},
 			},
-			"required": []string{"symlink"},
+			"required": []any{"symlink"},
 		}, nil
 	}
 
 	// Regular file with content/size/sha256 (can be combined)
 	if hasContent || hasSize || hasSha256 {
 		props := make(map[string]any)
-		required := make([]string, 0)
+		required := make([]any, 0)
 
 		if hasContent {
 			content, ok := obj["content"].(string)
@@ -147,7 +147,7 @@ func expandFileDescriptor(key string, obj map[string]any) (map[string]any, error
 			required = append(required, "sha256")
 		}
 
-		sort.Strings(required)
+		sortAnyStrings(required)
 		return map[string]any{
 			"type":       "object",
 			"properties": props,
@@ -196,4 +196,10 @@ func expandSizeConstraint(key string, size any) (map[string]any, error) {
 	default:
 		return nil, fmt.Errorf("file %q size must be number or {min, max}", key)
 	}
+}
+
+func sortAnyStrings(s []any) {
+	sort.Slice(s, func(i, j int) bool {
+		return s[i].(string) < s[j].(string)
+	})
 }
