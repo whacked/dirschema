@@ -8,8 +8,9 @@ let
 in pkgs.mkShell {
   buildInputs = [
     pkgs.go
+    pkgs.gopls
     pkgs.jsonnet
-    pkgs.yq
+    pkgs.yq-go
     pkgs.nodejs
   ];  # join lists with ++
 
