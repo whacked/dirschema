@@ -23,8 +23,6 @@ const (
 	ExitConfigError = 2
 )
 
-const Version = "dev"
-
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		printUsage(stderr)

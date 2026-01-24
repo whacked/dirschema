@@ -1,0 +1,26 @@
+version.go:
+  in: Sdflow.yaml
+  out: internal/cli/version.go
+  run: |
+    today=$(date +%Y%m%d)
+    git_commits_today=$(git log --pretty=format:"%cd %h" --date=format:"%Y%m%d" | tac | grep "^$today" || true)
+    if [ -z "$git_commits_today" ]; then
+      number_commits_today=0
+      latest_sha=$(git rev-parse --short HEAD)
+    else
+      number_commits_today=$(echo "$git_commits_today" | wc -l | tr -d ' ')
+      latest_sha=$(echo "$git_commits_today" | tail -1 | awk '{print $NF}')
+    fi
+
+    cat > $out << EOF
+    package cli
+
+    const Version = "$today.$number_commits_today.$latest_sha"
+    EOF
+
+dirschema:
+  in:
+    - internal/**/*.go
+    - cmd/**/*.go
+  out: dirschema
+  run: go build -o $out ./cmd/dirschema

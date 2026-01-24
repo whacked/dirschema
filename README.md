@@ -77,9 +77,13 @@ go test ./...
 
 ### Build
 
+The main builder uses `sdflow`, which is the sole target in the Makefile
+
 ```bash
-make build
+make
 ```
+
+we might remove make later
 
 ### Project layout
 
