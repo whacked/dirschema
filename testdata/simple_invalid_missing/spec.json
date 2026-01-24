@@ -1,11 +1,21 @@
 {
   "type": "object",
   "properties": {
-    "README.md": {"const": true},
+    "README.md": {
+      "oneOf": [
+        {"const": true},
+        {"type": "object"}
+      ]
+    },
     "src/": {
       "type": "object",
       "properties": {
-        "main.go": {"const": true}
+        "main.go": {
+          "oneOf": [
+            {"const": true},
+            {"type": "object"}
+          ]
+        }
       },
       "required": ["main.go"]
     }

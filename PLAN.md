@@ -47,13 +47,12 @@ dirschema spec.jsonnet [--root DIR] [--format text|json] [--print-instance] [--f
 #### 3) Hydrate
 
 ```bash
-dirschema spec.yaml --hydrate [--root DIR] [--dry-run] [--force] [--format text|json]
+dirschema spec.yaml --hydrate [--root DIR] [--dry-run] [--format text|json]
 ```
 
 * Validates the current tree as-is.
 * If valid: exit `0` with no changes.
 * `--dry-run` prints planned operations and exits with `0` if it *would* succeed.
-* `--force` allows overwriting files only when schema says overwritable (default: do not overwrite).
 
 ### Global flags
 
@@ -332,41 +331,31 @@ We need a crisp line to avoid feature creep.
 * Hydrate is best-effort creation of missing paths, not a guarantee of post-hydration validity.
 * Post-hydration validation may still fail due to schema requirements that cannot be satisfied by defaults alone (e.g., content hash mismatch, pattern-only constraints).
 
-### 6.2 Defaults
+### 6.2 Hydration content source
 
-We need a place in schema to express defaults for hydration.
-JSON Schema has `default`, but it’s annotation, not validation.
+Hydration uses the `content` property from the schema as the source of truth:
 
-**Convention (first cut):**
+* If schema specifies `content: "exact string"`, hydrate writes that content.
+* If no `content` specified, hydrate creates an empty file.
+* `content` with regex/pattern cannot be hydrated (schema error or skip).
 
-* For file leaf schemas:
+**Constraints:**
 
-  * `defaultContent`: string (write file with this content)
-  * `defaultBytesBase64`: base64 for binary (optional; may be too much for v1)
-* If neither specified: create empty file.
+* `content` is UTF-8 only; no binary support in v1.
+* Line endings are written as-is from schema.
+* Max content size enforced (same limit as validation content reads).
 
-**Edge case to call out:**
+**Pattern properties rule:**
 
-* Defaults are annotations in JSON Schema, and multiple schemas can disagree.
-  * Example: `oneOf` two file schemas with different defaults — hydrate can’t know which to pick unless validation decides a winner.
-* Another concrete edge: if we implicitly create empty files, but the schema requires `content`/`pattern` or `size > 0`, hydration will succeed then immediate post-validate will fail. We should either require an explicit default for those cases or treat them as “cannot hydrate without explicit default.”
-
-**If we hydrate from `content`:**
-
-* Only safe when `content` is an exact string (not a regex/pattern).
-* Doesn’t cover binary files, large files, or explicit `sha256`/`size` constraints unless we accept the exact content as the source of truth.
-* Needs a clear max-size and encoding rule (UTF-8 only), and a policy for line endings so we don’t create content that immediately fails validation on another platform.
-
-**Pattern properties rule (v1):**
-
-* If a directory schema uses `patternProperties`, hydrate should **skip** those entries unless a default is explicitly provided.
+* If a directory schema uses `patternProperties`, hydrate **skips** those entries (cannot infer names).
 
 For directories: created as needed.
 
 ### 6.3 Overwrite policy
 
-* Never overwrite existing files by default.
-* If `--force` and schema includes `overwritable: true` on that leaf, allow overwrite.
+* Hydration only creates missing files/directories.
+* Existing paths are never modified, regardless of flags.
+* `--force` is reserved for future use (e.g., re-hydrate from updated schema).
 
 ---
 

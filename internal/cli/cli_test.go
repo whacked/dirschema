@@ -40,17 +40,26 @@ func TestExpandCommand(t *testing.T) {
 	}
 
 	got := decodeJSON(t, stdout.Bytes())
+
+	// Existence-only files expand to oneOf: [const true, type object]
+	existenceSchema := map[string]any{
+		"oneOf": []any{
+			map[string]any{"const": true},
+			map[string]any{"type": "object"},
+		},
+	}
+
 	want := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"src/": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"main.go": map[string]any{"const": true},
+					"main.go": existenceSchema,
 				},
 				"required": []any{"main.go"},
 			},
-			"README.md": map[string]any{"const": true},
+			"README.md": existenceSchema,
 		},
 		"required": []any{"README.md", "src/"},
 	}

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dirschema.local/meta.json",
+  "title": "dirschema meta-schema",
+  "description": "Validates basic structure of expanded dirschema schemas",
+  "type": "object",
+  "properties": {
+    "type": {
+      "const": "object"
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "required": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "required": ["type", "properties", "required"]
+}

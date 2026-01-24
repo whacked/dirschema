@@ -48,9 +48,8 @@ dirschema validate spec.json --root /path/to/tree
 dirschema hydrate spec.json --root /path/to/tree
 ```
 
-- Creates missing required files/dirs (no overwrites by default).
+- Creates missing required files/dirs; existing paths are never modified.
 - `--dry-run` prints planned operations without changes.
-- `--force` allows overwrite only when schema marks `overwritable: true`.
 
 ### Version
 

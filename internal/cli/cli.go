@@ -261,7 +261,6 @@ func runHydrate(args []string, stdout, stderr io.Writer) int {
 	rootFlag := fs.String("root", "", "root directory")
 	formatFlag := fs.String("format", "text", "output format (text|json)")
 	dryRun := fs.Bool("dry-run", false, "print planned operations without applying")
-	force := fs.Bool("force", false, "allow overwrite when schema allows it")
 	if err := fs.Parse(args); err != nil {
 		return ExitConfigError
 	}
@@ -302,6 +301,18 @@ func runHydrate(args []string, stdout, stderr io.Writer) int {
 		return ExitConfigError
 	}
 
+	// Text mode: always print ops to stdout
+	if *formatFlag == "text" {
+		text := hydrate.FormatOpsText(plan)
+		if text != "" {
+			if _, err := stdout.Write([]byte(text + "\n")); err != nil {
+				fmt.Fprintf(stderr, "failed to write plan: %v\n", err)
+				return ExitConfigError
+			}
+		}
+	}
+
+	// Dry-run: just print plan and exit
 	if *dryRun {
 		if *formatFlag == "json" {
 			payload, err := hydrate.FormatOpsJSON(plan)
@@ -317,19 +328,11 @@ func runHydrate(args []string, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "failed to write plan: %v\n", err)
 				return ExitConfigError
 			}
-		} else {
-			text := hydrate.FormatOpsText(plan)
-			if text != "" {
-				if _, err := stdout.Write([]byte(text + "\n")); err != nil {
-					fmt.Fprintf(stderr, "failed to write plan: %v\n", err)
-					return ExitConfigError
-				}
-			}
 		}
 		return ExitSuccess
 	}
 
-	if err := hydrate.Apply(plan, hydrate.ApplyOptions{Force: *force}); err != nil {
+	if err := hydrate.Apply(plan, hydrate.ApplyOptions{}); err != nil {
 		fmt.Fprintf(stderr, "failed to apply hydrate plan: %v\n", err)
 		return ExitConfigError
 	}
@@ -347,7 +350,7 @@ func runHydrate(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if *formatFlag == "json" {
-		payload, err := report.FormatJSON(result)
+		payload, err := report.FormatHydrateJSON(plan, result)
 		if err != nil {
 			fmt.Fprintf(stderr, "failed to encode report: %v\n", err)
 			return ExitConfigError
@@ -428,7 +431,7 @@ func writeJSON(w io.Writer, value any) error {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, "usage: dirschema <spec> [--root DIR] [--format text|json] [--print-instance]\n\ncommands:\n  expand <spec>\n  export [--root DIR]\n  validate <spec> [--root DIR] [--format text|json] [--print-instance]\n  hydrate <spec> [--root DIR] [--format text|json] [--dry-run] [--force]\n  version\n")
+	fmt.Fprint(w, "usage: dirschema <spec> [--root DIR] [--format text|json] [--print-instance]\n\ncommands:\n  expand <spec>\n  export [--root DIR]\n  validate <spec> [--root DIR] [--format text|json] [--print-instance]\n  hydrate <spec> [--root DIR] [--format text|json] [--dry-run]\n  version\n")
 }
 
 func Main() int {

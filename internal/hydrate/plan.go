@@ -17,12 +17,11 @@ const (
 )
 
 type Op struct {
-	Kind      OpKind
-	Path      string
-	RelPath   string
-	Content   *string
-	Target    string
-	Overwrite bool
+	Kind    OpKind
+	Path    string
+	RelPath string
+	Content *string
+	Target  string
 }
 
 type Plan struct {
@@ -77,16 +76,11 @@ func collectOps(schema map[string]any, root, rel string) ([]Op, error) {
 		if target, ok, err := symlinkTargetFromSchema(childSchema); err != nil {
 			return nil, err
 		} else if ok {
-			overwrite, err := overwritableFromSchema(childSchema)
-			if err != nil {
-				return nil, err
-			}
 			op := Op{
-				Kind:      OpSymlink,
-				Path:      filepath.Join(root, childRel),
-				RelPath:   childRel,
-				Target:    target,
-				Overwrite: overwrite,
+				Kind:    OpSymlink,
+				Path:    filepath.Join(root, childRel),
+				RelPath: childRel,
+				Target:  target,
 			}
 			if !pathExists(op.Path) {
 				ops = append(ops, op)
@@ -94,16 +88,12 @@ func collectOps(schema map[string]any, root, rel string) ([]Op, error) {
 			continue
 		}
 
-		content, overwrite, err := fileDefaults(childSchema)
-		if err != nil {
-			return nil, err
-		}
+		content := contentFromSchema(childSchema)
 		op := Op{
-			Kind:      OpWriteFile,
-			Path:      filepath.Join(root, childRel),
-			RelPath:   childRel,
-			Content:   content,
-			Overwrite: overwrite,
+			Kind:    OpWriteFile,
+			Path:    filepath.Join(root, childRel),
+			RelPath: childRel,
+			Content: content,
 		}
 		if !pathExists(op.Path) {
 			ops = append(ops, op)
@@ -116,13 +106,15 @@ func collectOps(schema map[string]any, root, rel string) ([]Op, error) {
 func requiredKeys(schema map[string]any) []string {
 	var out []string
 	if raw, ok := schema["required"]; ok {
-		slice, ok := raw.([]any)
-		if ok {
-			for _, item := range slice {
+		switch v := raw.(type) {
+		case []any:
+			for _, item := range v {
 				if s, ok := item.(string); ok {
 					out = append(out, s)
 				}
 			}
+		case []string:
+			out = append(out, v...)
 		}
 	}
 	sort.Strings(out)
@@ -153,7 +145,7 @@ func isDirectorySchema(schema map[string]any, name string) bool {
 func isFileDescriptorProperties(props map[string]any) bool {
 	for key := range props {
 		switch key {
-		case "size", "sha256", "content", "mode", "defaultContent", "overwritable", "symlink":
+		case "size", "sha256", "content", "mode", "symlink":
 			continue
 		default:
 			return false
@@ -162,20 +154,21 @@ func isFileDescriptorProperties(props map[string]any) bool {
 	return len(props) > 0
 }
 
-func fileDefaults(schema map[string]any) (*string, bool, error) {
-	var content *string
-	if raw, ok := schema["defaultContent"]; ok {
-		str, ok := raw.(string)
-		if !ok {
-			return nil, false, fmt.Errorf("defaultContent must be string")
+func contentFromSchema(schema map[string]any) *string {
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	contentSchema, ok := props["content"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	if val, ok := contentSchema["const"]; ok {
+		if str, ok := val.(string); ok {
+			return &str
 		}
-		content = &str
 	}
-	overwrite, err := overwritableFromSchema(schema)
-	if err != nil {
-		return nil, false, err
-	}
-	return content, overwrite, nil
+	return nil
 }
 
 func stableSortOps(ops []Op) {
@@ -190,17 +183,6 @@ func stableSortOps(ops []Op) {
 func pathExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func overwritableFromSchema(schema map[string]any) (bool, error) {
-	if raw, ok := schema["overwritable"]; ok {
-		val, ok := raw.(bool)
-		if !ok {
-			return false, fmt.Errorf("overwritable must be boolean")
-		}
-		return val, nil
-	}
-	return false, nil
 }
 
 func symlinkTargetFromSchema(schema map[string]any) (string, bool, error) {

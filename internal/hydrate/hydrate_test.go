@@ -50,7 +50,12 @@ func TestApplyCreatesFiles(t *testing.T) {
 	schema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"file.txt": map[string]any{"const": true, "defaultContent": "hello"},
+			"file.txt": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"content": map[string]any{"const": "hello"},
+				},
+			},
 		},
 		"required": []any{"file.txt"},
 	}
@@ -68,36 +73,6 @@ func TestApplyCreatesFiles(t *testing.T) {
 		t.Fatalf("read: %v", err)
 	}
 	if string(content) != "hello" {
-		t.Fatalf("unexpected content: %q", string(content))
-	}
-}
-
-func TestApplyOverwriteGuard(t *testing.T) {
-	root := t.TempDir()
-	path := filepath.Join(root, "file.txt")
-	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	plan := Plan{Ops: []Op{{
-		Kind:      OpWriteFile,
-		Path:      path,
-		RelPath:   "file.txt",
-		Content:   strPtr("new"),
-		Overwrite: true,
-	}}}
-
-	if err := Apply(plan, ApplyOptions{}); err == nil {
-		t.Fatalf("expected overwrite error")
-	}
-	if err := Apply(plan, ApplyOptions{Force: true}); err != nil {
-		t.Fatalf("expected overwrite success, got %v", err)
-	}
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	if string(content) != "new" {
 		t.Fatalf("unexpected content: %q", string(content))
 	}
 }
@@ -155,6 +130,46 @@ func TestApplySymlink(t *testing.T) {
 	}
 }
 
-func strPtr(s string) *string {
-	return &s
+func TestRequiredKeysTypes(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema map[string]any
+		want   []string
+	}{
+		{
+			name:   "nil required",
+			schema: map[string]any{},
+			want:   nil,
+		},
+		{
+			name: "[]any type",
+			schema: map[string]any{
+				"required": []any{"b", "a", "c"},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "[]string type",
+			schema: map[string]any{
+				"required": []string{"z", "y", "x"},
+			},
+			want: []string{"x", "y", "z"},
+		},
+		{
+			name: "[]any with non-strings ignored",
+			schema: map[string]any{
+				"required": []any{"a", 123, "b"},
+			},
+			want: []string{"a", "b"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := requiredKeys(tc.schema)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("requiredKeys() = %v, want %v", got, tc.want)
+			}
+		})
+	}
 }

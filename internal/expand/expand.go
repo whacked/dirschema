@@ -1,7 +1,6 @@
 package expand
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -62,12 +61,12 @@ func expandDirectoryValue(key string, value any) (map[string]any, error) {
 
 func expandFileValue(key string, value any) (map[string]any, error) {
 	if value == nil {
-		return map[string]any{"const": true}, nil
+		return existenceOnlyFileSchema(), nil
 	}
 	boolVal, ok := value.(bool)
 	if ok {
 		if boolVal {
-			return map[string]any{"const": true}, nil
+			return existenceOnlyFileSchema(), nil
 		}
 		return nil, fmt.Errorf("file %q must be true or object, got false", key)
 	}
@@ -77,12 +76,33 @@ func expandFileValue(key string, value any) (map[string]any, error) {
 	return nil, fmt.Errorf("file %q must be true or object", key)
 }
 
-func expandFileDescriptor(key string, obj map[string]any) (map[string]any, error) {
-	if len(obj) != 1 {
-		return nil, errors.New("file descriptor objects must contain a single key")
+// existenceOnlyFileSchema returns a schema that matches both:
+// - true (when no attributes requested)
+// - object (when global attributes like content are included)
+func existenceOnlyFileSchema() map[string]any {
+	return map[string]any{
+		"oneOf": []any{
+			map[string]any{"const": true},
+			map[string]any{"type": "object"},
+		},
 	}
-	if raw, ok := obj["symlink"]; ok {
-		target, ok := raw.(string)
+}
+
+func expandFileDescriptor(key string, obj map[string]any) (map[string]any, error) {
+	// Check for mutually exclusive properties
+	_, hasSymlink := obj["symlink"]
+	_, hasContent := obj["content"]
+	_, hasSize := obj["size"]
+	_, hasSha256 := obj["sha256"]
+
+	// Symlink is exclusive with everything else
+	if hasSymlink && (hasContent || hasSize || hasSha256) {
+		return nil, fmt.Errorf("file %q: symlink cannot be combined with content/size/sha256", key)
+	}
+
+	// Symlink-only case
+	if hasSymlink {
+		target, ok := obj["symlink"].(string)
 		if !ok {
 			return nil, fmt.Errorf("file %q symlink target must be string", key)
 		}
@@ -91,8 +111,89 @@ func expandFileDescriptor(key string, obj map[string]any) (map[string]any, error
 			"properties": map[string]any{
 				"symlink": map[string]any{"const": target},
 			},
-			"required":             []string{"symlink"},
+			"required": []string{"symlink"},
 		}, nil
 	}
-	return nil, errors.New("file descriptor objects are not supported yet")
+
+	// Regular file with content/size/sha256 (can be combined)
+	if hasContent || hasSize || hasSha256 {
+		props := make(map[string]any)
+		required := make([]string, 0)
+
+		if hasContent {
+			content, ok := obj["content"].(string)
+			if !ok {
+				return nil, fmt.Errorf("file %q content must be string", key)
+			}
+			props["content"] = map[string]any{"const": content}
+			required = append(required, "content")
+		}
+
+		if hasSize {
+			sizeSchema, err := expandSizeConstraint(key, obj["size"])
+			if err != nil {
+				return nil, err
+			}
+			props["size"] = sizeSchema
+			required = append(required, "size")
+		}
+
+		if hasSha256 {
+			hash, ok := obj["sha256"].(string)
+			if !ok {
+				return nil, fmt.Errorf("file %q sha256 must be string", key)
+			}
+			props["sha256"] = map[string]any{"const": hash}
+			required = append(required, "sha256")
+		}
+
+		sort.Strings(required)
+		return map[string]any{
+			"type":       "object",
+			"properties": props,
+			"required":   required,
+		}, nil
+	}
+
+	// List unsupported keys for better error message
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return nil, fmt.Errorf("file %q has unsupported descriptor keys: %v", key, keys)
+}
+
+func expandSizeConstraint(key string, size any) (map[string]any, error) {
+	switch v := size.(type) {
+	case float64:
+		return map[string]any{"const": int64(v)}, nil
+	case int:
+		return map[string]any{"const": int64(v)}, nil
+	case map[string]any:
+		schema := map[string]any{"type": "integer"}
+		if min, ok := v["min"]; ok {
+			switch m := min.(type) {
+			case float64:
+				schema["minimum"] = int64(m)
+			case int:
+				schema["minimum"] = int64(m)
+			default:
+				return nil, fmt.Errorf("file %q size.min must be number", key)
+			}
+		}
+		if max, ok := v["max"]; ok {
+			switch m := max.(type) {
+			case float64:
+				schema["maximum"] = int64(m)
+			case int:
+				schema["maximum"] = int64(m)
+			default:
+				return nil, fmt.Errorf("file %q size.max must be number", key)
+			}
+		}
+		return schema, nil
+	default:
+		return nil, fmt.Errorf("file %q size must be number or {min, max}", key)
+	}
 }

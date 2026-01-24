@@ -7,7 +7,6 @@ import (
 )
 
 type ApplyOptions struct {
-	Force  bool
 	DryRun bool
 }
 
@@ -44,12 +43,6 @@ func applyWrite(op Op, opts ApplyOptions) error {
 		return fmt.Errorf("mkdir for file %s: %w", op.RelPath, err)
 	}
 
-	if _, err := os.Stat(op.Path); err == nil {
-		if !opts.Force || !op.Overwrite {
-			return fmt.Errorf("refusing to overwrite %s", op.RelPath)
-		}
-	}
-
 	content := []byte{}
 	if op.Content != nil {
 		content = []byte(*op.Content)
@@ -66,14 +59,6 @@ func applySymlink(op Op, opts ApplyOptions) error {
 	}
 	if err := os.MkdirAll(filepath.Dir(op.Path), 0o755); err != nil {
 		return fmt.Errorf("mkdir for symlink %s: %w", op.RelPath, err)
-	}
-	if _, err := os.Lstat(op.Path); err == nil {
-		if !opts.Force || !op.Overwrite {
-			return fmt.Errorf("refusing to overwrite %s", op.RelPath)
-		}
-		if err := os.Remove(op.Path); err != nil {
-			return fmt.Errorf("remove %s: %w", op.RelPath, err)
-		}
 	}
 	if err := os.Symlink(op.Target, op.Path); err != nil {
 		return fmt.Errorf("symlink %s: %w", op.RelPath, err)

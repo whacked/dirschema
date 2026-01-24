@@ -41,12 +41,32 @@ func parseNode(node map[string]any, opts ParseOptions) (map[string]any, error) {
 }
 
 func parseValue(key string, value any, opts ParseOptions) (any, error) {
-	if key == "symlink" {
+	// File descriptor properties that must be strings
+	if key == "symlink" || key == "content" || key == "sha256" {
 		switch v := value.(type) {
 		case string:
 			return v, nil
 		default:
-			return nil, fmt.Errorf("symlink must be string")
+			return nil, fmt.Errorf("%s must be string", key)
+		}
+	}
+	// Size can be a number or a range object {min, max}
+	if key == "size" {
+		switch v := value.(type) {
+		case float64:
+			return v, nil
+		case int:
+			return float64(v), nil
+		case map[string]any:
+			// Validate it's a range object
+			for k := range v {
+				if k != "min" && k != "max" {
+					return nil, fmt.Errorf("size object can only have min/max keys, got %q", k)
+				}
+			}
+			return v, nil
+		default:
+			return nil, fmt.Errorf("size must be number or {min, max} object")
 		}
 	}
 	switch v := value.(type) {

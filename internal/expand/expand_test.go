@@ -18,23 +18,31 @@ func TestExpandSimpleDSL(t *testing.T) {
 		t.Fatalf("ExpandDSL: %v", err)
 	}
 
+	// Existence-only files expand to oneOf: [const true, type object]
+	existenceSchema := map[string]any{
+		"oneOf": []any{
+			map[string]any{"const": true},
+			map[string]any{"type": "object"},
+		},
+	}
+
 	want := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"src/": map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"main.go": map[string]any{"const": true},
+					"main.go": existenceSchema,
 				},
 				"required": []string{"main.go"},
 			},
-			"README.md": map[string]any{"const": true},
+			"README.md": existenceSchema,
 		},
 		"required": []string{"README.md", "src/"},
 	}
 
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("schema mismatch: got %#v want %#v", got, want)
+		t.Fatalf("schema mismatch:\ngot:  %#v\nwant: %#v", got, want)
 	}
 }
 
@@ -104,5 +112,174 @@ func TestExpandListDSLRejectsDuplicates(t *testing.T) {
 	_, err := ExpandDSL(dsl)
 	if err == nil {
 		t.Fatalf("expected duplicate error")
+	}
+}
+
+func TestExpandContentDSL(t *testing.T) {
+	dsl := map[string]any{
+		"config.txt": map[string]any{"content": "key=value"},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	want := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"config.txt": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"content": map[string]any{"const": "key=value"},
+				},
+				"required": []string{"content"},
+			},
+		},
+		"required": []string{"config.txt"},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("schema mismatch:\ngot:  %#v\nwant: %#v", got, want)
+	}
+}
+
+func TestExpandContentListDSL(t *testing.T) {
+	dsl := map[string]any{
+		"dir/": []any{
+			map[string]any{"readme.md": map[string]any{"content": "# Hello"}},
+		},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	dir := got["properties"].(map[string]any)["dir/"].(map[string]any)
+	props := dir["properties"].(map[string]any)
+	readme := props["readme.md"].(map[string]any)
+	readmeProps := readme["properties"].(map[string]any)
+
+	if readmeProps["content"].(map[string]any)["const"] != "# Hello" {
+		t.Fatalf("expected content const")
+	}
+}
+
+func TestExpandRejectsSymlinkAndContent(t *testing.T) {
+	dsl := map[string]any{
+		"file.txt": map[string]any{
+			"symlink": "target.txt",
+			"content": "hello",
+		},
+	}
+
+	_, err := ExpandDSL(dsl)
+	if err == nil {
+		t.Fatalf("expected error for symlink+content")
+	}
+}
+
+func TestExpandSha256DSL(t *testing.T) {
+	dsl := map[string]any{
+		"data.bin": map[string]any{"sha256": "abc123def456"},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	want := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"data.bin": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"sha256": map[string]any{"const": "abc123def456"},
+				},
+				"required": []string{"sha256"},
+			},
+		},
+		"required": []string{"data.bin"},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("schema mismatch:\ngot:  %#v\nwant: %#v", got, want)
+	}
+}
+
+func TestExpandSizeExactDSL(t *testing.T) {
+	dsl := map[string]any{
+		"file.dat": map[string]any{"size": float64(1024)},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	props := got["properties"].(map[string]any)
+	fileSchema := props["file.dat"].(map[string]any)
+	fileProps := fileSchema["properties"].(map[string]any)
+	sizeSchema := fileProps["size"].(map[string]any)
+
+	if sizeSchema["const"] != int64(1024) {
+		t.Fatalf("expected size const 1024, got %v", sizeSchema)
+	}
+}
+
+func TestExpandSizeRangeDSL(t *testing.T) {
+	dsl := map[string]any{
+		"file.dat": map[string]any{
+			"size": map[string]any{"min": float64(100), "max": float64(1000)},
+		},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	props := got["properties"].(map[string]any)
+	fileSchema := props["file.dat"].(map[string]any)
+	fileProps := fileSchema["properties"].(map[string]any)
+	sizeSchema := fileProps["size"].(map[string]any)
+
+	if sizeSchema["type"] != "integer" {
+		t.Fatalf("expected size type integer, got %v", sizeSchema["type"])
+	}
+	if sizeSchema["minimum"] != int64(100) {
+		t.Fatalf("expected minimum 100, got %v", sizeSchema["minimum"])
+	}
+	if sizeSchema["maximum"] != int64(1000) {
+		t.Fatalf("expected maximum 1000, got %v", sizeSchema["maximum"])
+	}
+}
+
+func TestExpandCombinedConstraints(t *testing.T) {
+	dsl := map[string]any{
+		"file.txt": map[string]any{
+			"content": "hello",
+			"size":    float64(5),
+			"sha256":  "abc123",
+		},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	props := got["properties"].(map[string]any)
+	fileSchema := props["file.txt"].(map[string]any)
+	fileProps := fileSchema["properties"].(map[string]any)
+	required := fileSchema["required"].([]string)
+
+	if len(fileProps) != 3 {
+		t.Fatalf("expected 3 properties, got %d", len(fileProps))
+	}
+	if len(required) != 3 {
+		t.Fatalf("expected 3 required, got %d", len(required))
 	}
 }
