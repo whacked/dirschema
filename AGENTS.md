@@ -8,7 +8,7 @@ This file defines invariant agent policies and project-specific conventions.
 ## 0) Project summary
 
 **Project name**
-- schedaf
+- dirschema
 
 **Purpose**
 - validates and scaffolds a given directory against a schema-defined structure

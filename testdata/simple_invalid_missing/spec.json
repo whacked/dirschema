@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "README.md": {"const": true},
+    "src/": {
+      "type": "object",
+      "properties": {
+        "main.go": {"const": true}
+      },
+      "required": ["main.go"]
+    }
+  },
+  "required": ["README.md", "src/"]
+}

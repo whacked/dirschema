@@ -376,7 +376,6 @@ For directories: created as needed.
 
 * Use `required` for fixed names.
 * Use `patternProperties` for naming rules.
-* Use `additionalProperties: false` to forbid unknown entries in a directory.
 
 ### 8.2 Distinguishing file vs directory
 

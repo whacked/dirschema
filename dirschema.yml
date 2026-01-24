@@ -1,0 +1,63 @@
+- AGENTS.md
+- CLAUDE.md:
+    symlink: AGENTS.md
+- Makefile
+- README.md
+- cmd/:
+    - dirschema/:
+        - main.go
+- dirschema
+- docs/:
+    - adr/:
+        - 0001-jsonschema-library.md
+- dirschema.yml
+- go.mod
+- go.sum
+- internal/:
+    - cli/:
+        - cli.go
+        - cli_test.go
+        - export_test.go
+        - hydrate_test.go
+        - validate_test.go
+    - expand/:
+        - expand.go
+        - expand_test.go
+        - format.go
+        - parse.go
+    - fswalk/:
+        - fswalk.go
+        - fswalk_test.go
+    - hydrate/:
+        - apply.go
+        - hydrate_test.go
+        - plan.go
+        - report.go
+    - instance/:
+        - attrscan.go
+    - integration/:
+        - integration_test.go
+    - report/:
+        - report.go
+        - report_test.go
+    - spec/:
+        - spec.go
+        - spec_test.go
+    - validate/:
+        - validate.go
+        - validate_test.go
+- shell.nix
+- testdata/:
+    - hydrate_empty/:
+        - spec.json
+    - simple_invalid_missing/:
+        - root/:
+            - src/:
+                - main.go
+        - spec.json
+    - simple_valid/:
+        - root/:
+            - README.md
+            - src/:
+                - main.go
+        - spec.json

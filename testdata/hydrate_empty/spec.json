@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "config/": {
+      "type": "object",
+      "properties": {
+        "app.conf": {"const": true, "defaultContent": "key=value\n"}
+      },
+      "required": ["app.conf"]
+    },
+    "README.md": {"const": true}
+  },
+  "required": ["config/", "README.md"]
+}
