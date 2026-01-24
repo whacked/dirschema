@@ -24,7 +24,6 @@ in pkgs.mkShell {
 
   shellHook = nix_shortcuts.shellHook + ''
   '' + ''
-    export PATH=$PATH:/opt/npm/bin  # path to my node-based agents
     eval "$(sdflow --completions bash)"
     echo-shortcuts ${__curPos.file}
   '';  # join strings with +
