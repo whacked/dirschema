@@ -35,17 +35,18 @@ Symlinks are emitted as `{ "symlink": "target" }`.
 ### Validate (explicit)
 
 ```bash
-dirschema validate spec.json --root /path/to/tree
+dirschema validate --root /path/to/tree spec.json
 ```
 
 - Exit codes: 0 valid, 1 invalid, 2 config/IO error.
 - `--format json` for machine output.
 - `--print-instance` to emit derived instance JSON.
+- Options must come before the spec path.
 
 ### Hydrate
 
 ```bash
-dirschema hydrate spec.json --root /path/to/tree
+dirschema hydrate --root /path/to/tree spec.json
 ```
 
 - Creates missing required files/dirs; existing paths are never modified.
@@ -64,7 +65,10 @@ Use `-` as the spec path to read from stdin:
 ```bash
 echo '{"src/": {"main.go": true}}' | dirschema expand -
 cat spec.yaml | dirschema validate -
+cat spec.yaml | dirschema validate --root /path/to/tree -
 ```
+
+Options must come before `-`.
 
 Format is auto-detected by first non-whitespace character:
 - `-` → YAML list syntax

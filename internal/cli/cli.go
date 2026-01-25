@@ -429,14 +429,16 @@ func writeJSON(w io.Writer, value any) error {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, `usage: dirschema <spec> [--root DIR] [--format text|json] [--print-instance]
+	fmt.Fprint(w, `usage: dirschema [options] <spec>
 
 commands:
   expand <spec>
   export [--root DIR]
-  validate <spec> [--root DIR] [--format text|json] [--print-instance]
-  hydrate <spec> [--root DIR] [--format text|json] [--dry-run]
+  validate [--root DIR] [--format text|json] [--print-instance] <spec>
+  hydrate [--root DIR] [--format text|json] [--dry-run] <spec>
   version
+
+options must come before <spec>
 
 Use "-" as <spec> to read from stdin. Format is auto-detected:
   - Starts with "-": YAML list
