@@ -14,7 +14,7 @@
 
 buildGoApplication {
   pname = "dirschema";
-  version = "20260125.1.99bc5bf";
+  version = "20260125.3.2384f17";
   pwd = ./.;
   src = ./.;
   modules = ./gomod2nix.toml;
