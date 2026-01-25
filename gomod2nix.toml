@@ -1,0 +1,21 @@
+schema = 3
+
+[mod]
+  [mod."github.com/google/go-jsonnet"]
+    version = "v0.21.0"
+    hash = "sha256-ubuFy3BqYj/75IKkdjcCHxlj7mOD6vJL6EQVY+/G8iY="
+  [mod."github.com/santhosh-tekuri/jsonschema/v5"]
+    version = "v5.3.1"
+    hash = "sha256-G3shtLAutSrPjni+C9LAWDIeYfkr4R5pdKUVfAkB518="
+  [mod."golang.org/x/crypto"]
+    version = "v0.36.0"
+    hash = "sha256-Np+suvZdMOXALDm4m8nDNa+QsvUV0rE0PEINuxCoKGM="
+  [mod."golang.org/x/sys"]
+    version = "v0.31.0"
+    hash = "sha256-aulv5obCrhheMlSq7seUgP3C29nfZABwiQ4IBNisgME="
+  [mod."gopkg.in/yaml.v3"]
+    version = "v3.0.1"
+    hash = "sha256-FqL9TKYJ0XkNwJFnq9j0VvJ5ZUU1RvH/52h/f5bkYAU="
+  [mod."sigs.k8s.io/yaml"]
+    version = "v1.4.0"
+    hash = "sha256-Hd/M0vIfIVobDd87eb58p1HyVOjYWNlGq2bRXfmtVno="
