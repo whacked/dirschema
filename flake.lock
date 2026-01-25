@@ -101,15 +101,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1769265969,
-        "narHash": "sha256-5fUcbQ/EeWbSnbRp5/pOQRxQTgfIq5jcV5t6e/oaVwE=",
+        "lastModified": 1769333295,
+        "narHash": "sha256-RTKOkcEuLIQoDOjmirtbbs6eXSZgqp6iXGAFej3AfB0=",
         "owner": "whacked",
         "repo": "sdflow",
-        "rev": "5cb84e62534dfe55cc932bad34e6be357c017587",
+        "rev": "b2b3d02fe2dcdd48fc8b47bc89d38fbcf7038ac3",
         "type": "github"
       },
       "original": {
         "owner": "whacked",
+        "ref": "b2b3d02",
         "repo": "sdflow",
         "type": "github"
       }

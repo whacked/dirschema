@@ -2,4 +2,4 @@ BINARY := dirschema
 
 .PHONY: build
 build:
-	sdflow dirschema
+	sdflow build

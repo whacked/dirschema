@@ -6,7 +6,7 @@
   inputs.gomod2nix.url = "github:nix-community/gomod2nix";
   inputs.gomod2nix.inputs.nixpkgs.follows = "nixpkgs";
   inputs.gomod2nix.inputs.flake-utils.follows = "flake-utils";
-  inputs.sdflow.url = "github:whacked/sdflow";
+  inputs.sdflow.url = "github:whacked/sdflow/b2b3d02";
   inputs.sdflow.inputs.nixpkgs.follows = "nixpkgs";
   inputs.sdflow.inputs.flake-utils.follows = "flake-utils";
 

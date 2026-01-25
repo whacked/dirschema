@@ -42,6 +42,7 @@ in pkgs.mkShell {
       nix run github:nix-community/gomod2nix
     }
   '' + ''
+    export PATH=$PATH:$PWD/bin
     eval "$(sdflow --completions bash)"
     echo-shortcuts ${__curPos.file}
   '';  # join strings with +
