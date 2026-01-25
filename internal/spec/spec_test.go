@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -106,5 +107,118 @@ func TestInferKind(t *testing.T) {
 	mixed := map[string]any{"type": "object", "src/": map[string]any{}}
 	if _, err := InferKind(mixed); err == nil {
 		t.Fatalf("expected mixed spec error")
+	}
+}
+
+func decodeJSONAny(t *testing.T, raw []byte) any {
+	t.Helper()
+	var out any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode json: %v", err)
+	}
+	return out
+}
+
+func TestLoadFromReader_YAMLList(t *testing.T) {
+	// Input starting with '-' should be parsed as YAML
+	input := "- foo/\n- bar/"
+	loaded, err := LoadFromReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("LoadFromReader: %v", err)
+	}
+
+	got := decodeJSONAny(t, loaded.JSON)
+	want := []any{"foo/", "bar/"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestLoadFromReader_JSONObject(t *testing.T) {
+	// Input starting with '{' should be parsed as Jsonnet (which handles JSON)
+	input := `{"foo": "bar"}`
+	loaded, err := LoadFromReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("LoadFromReader: %v", err)
+	}
+
+	got := decodeJSON(t, loaded.JSON)
+	want := map[string]any{"foo": "bar"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestLoadFromReader_JSONArray(t *testing.T) {
+	// Input starting with '[' should be parsed as Jsonnet
+	input := `["foo/", "bar/"]`
+	loaded, err := LoadFromReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("LoadFromReader: %v", err)
+	}
+
+	got := decodeJSONAny(t, loaded.JSON)
+	want := []any{"foo/", "bar/"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestLoadFromReader_Jsonnet(t *testing.T) {
+	// Jsonnet with object syntax (must start with { for stdin detection)
+	input := `{ local x = "bar", foo: x }`
+	loaded, err := LoadFromReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("LoadFromReader: %v", err)
+	}
+
+	got := decodeJSON(t, loaded.JSON)
+	want := map[string]any{"foo": "bar"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestLoadFromReader_YAMLMap(t *testing.T) {
+	// YAML map (doesn't start with -, {, or [)
+	input := "foo: bar\nbaz: qux"
+	loaded, err := LoadFromReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("LoadFromReader: %v", err)
+	}
+
+	got := decodeJSON(t, loaded.JSON)
+	want := map[string]any{"foo": "bar", "baz": "qux"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestLoadFromReader_WhitespacePrefix(t *testing.T) {
+	// Whitespace before the actual content
+	input := "  \n  {\"foo\": \"bar\"}"
+	loaded, err := LoadFromReader(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("LoadFromReader: %v", err)
+	}
+
+	got := decodeJSON(t, loaded.JSON)
+	want := map[string]any{"foo": "bar"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mismatch: got %#v want %#v", got, want)
+	}
+}
+
+func TestLoadFromReader_Empty(t *testing.T) {
+	_, err := LoadFromReader(strings.NewReader(""))
+	if err == nil {
+		t.Fatalf("expected error for empty input")
+	}
+}
+
+func TestLoadFromReader_WhitespaceOnly(t *testing.T) {
+	_, err := LoadFromReader(strings.NewReader("   \n\t  "))
+	if err == nil {
+		t.Fatalf("expected error for whitespace-only input")
 	}
 }

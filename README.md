@@ -57,6 +57,20 @@ dirschema hydrate spec.json --root /path/to/tree
 dirschema version
 ```
 
+### Reading from stdin
+
+Use `-` as the spec path to read from stdin:
+
+```bash
+echo '{"src/": {"main.go": true}}' | dirschema expand -
+cat spec.yaml | dirschema validate -
+```
+
+Format is auto-detected by first non-whitespace character:
+- `-` → YAML list syntax
+- `{` or `[` → JSON/Jsonnet
+- Otherwise → YAML (falls back to Jsonnet if YAML fails)
+
 ## Schema and DSL notes
 
 - Files are modeled as `true` (existence-only) or a descriptor object (future: size/sha256/content constraints).

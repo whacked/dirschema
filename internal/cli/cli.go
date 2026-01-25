@@ -429,7 +429,20 @@ func writeJSON(w io.Writer, value any) error {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, "usage: dirschema <spec> [--root DIR] [--format text|json] [--print-instance]\n\ncommands:\n  expand <spec>\n  export [--root DIR]\n  validate <spec> [--root DIR] [--format text|json] [--print-instance]\n  hydrate <spec> [--root DIR] [--format text|json] [--dry-run]\n  version\n")
+	fmt.Fprint(w, `usage: dirschema <spec> [--root DIR] [--format text|json] [--print-instance]
+
+commands:
+  expand <spec>
+  export [--root DIR]
+  validate <spec> [--root DIR] [--format text|json] [--print-instance]
+  hydrate <spec> [--root DIR] [--format text|json] [--dry-run]
+  version
+
+Use "-" as <spec> to read from stdin. Format is auto-detected:
+  - Starts with "-": YAML list
+  - Starts with "{" or "[": JSON/Jsonnet
+  - Otherwise: YAML (fallback to Jsonnet)
+`)
 }
 
 func Main() int {

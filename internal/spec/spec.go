@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/google/go-jsonnet"
 	"gopkg.in/yaml.v3"
@@ -25,6 +27,10 @@ type Loaded struct {
 }
 
 func Load(path string) (Loaded, error) {
+	if path == "-" {
+		return LoadFromReader(os.Stdin)
+	}
+
 	ext := strings.ToLower(filepath.Ext(path))
 	contents, err := os.ReadFile(path)
 	if err != nil {
@@ -44,6 +50,71 @@ func Load(path string) (Loaded, error) {
 	default:
 		return Loaded{}, fmt.Errorf("unsupported spec extension: %s", ext)
 	}
+}
+
+// LoadFromReader reads a spec from an io.Reader and auto-detects the format.
+// Detection logic:
+//   - First non-whitespace is '-' → YAML (list syntax)
+//   - First non-whitespace is '{' or '[' → Jsonnet
+//   - Otherwise → Try YAML first, fallback to Jsonnet
+func LoadFromReader(r io.Reader) (Loaded, error) {
+	contents, err := io.ReadAll(r)
+	if err != nil {
+		return Loaded{}, fmt.Errorf("failed to read input: %w", err)
+	}
+	if len(contents) == 0 {
+		return Loaded{}, errors.New("empty input")
+	}
+	return loadWithAutoDetect(contents)
+}
+
+func loadWithAutoDetect(contents []byte) (Loaded, error) {
+	firstChar := firstNonWhitespace(contents)
+	if firstChar == 0 {
+		return Loaded{}, errors.New("empty or whitespace-only input")
+	}
+
+	switch firstChar {
+	case '-':
+		// YAML list syntax
+		return loadYAML(contents)
+	case '{', '[':
+		// JSON-like structure, use Jsonnet (handles both JSON and Jsonnet)
+		return loadJsonnetSnippet(contents)
+	default:
+		// Try YAML first (covers YAML maps like "foo: bar")
+		loaded, yamlErr := loadYAML(contents)
+		if yamlErr == nil {
+			return loaded, nil
+		}
+		// Fallback to Jsonnet
+		loaded, jsonnetErr := loadJsonnetSnippet(contents)
+		if jsonnetErr == nil {
+			return loaded, nil
+		}
+		return Loaded{}, fmt.Errorf("failed to parse input: yaml error: %v; jsonnet error: %v", yamlErr, jsonnetErr)
+	}
+}
+
+func firstNonWhitespace(data []byte) byte {
+	for _, b := range data {
+		if !unicode.IsSpace(rune(b)) {
+			return b
+		}
+	}
+	return 0
+}
+
+func loadJsonnetSnippet(contents []byte) (Loaded, error) {
+	vm := jsonnet.MakeVM()
+	jsonStr, err := vm.EvaluateAnonymousSnippet("<stdin>", string(contents))
+	if err != nil {
+		return Loaded{}, fmt.Errorf("jsonnet eval: %w", err)
+	}
+	if err := validateJSON([]byte(jsonStr)); err != nil {
+		return Loaded{}, err
+	}
+	return Loaded{JSON: []byte(jsonStr)}, nil
 }
 
 func InferKind(root any) (Kind, error) {
