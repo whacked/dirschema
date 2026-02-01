@@ -1,3 +1,3 @@
 package cli
 
-const Version = "20260125.3.2384f17"
+const Version = "20260201.1.5d4df7e"
