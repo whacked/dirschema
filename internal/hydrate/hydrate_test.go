@@ -130,6 +130,68 @@ func TestApplySymlink(t *testing.T) {
 	}
 }
 
+func TestBuildPlanRejectsPatternProperties(t *testing.T) {
+	root := t.TempDir()
+	schema := map[string]any{
+		"type": "object",
+		"patternProperties": map[string]any{
+			"^.*\\.go$": map[string]any{"const": true},
+		},
+		"required": []any{},
+	}
+
+	_, err := BuildPlan(schema, root)
+	if err == nil {
+		t.Fatalf("expected error for patternProperties")
+	}
+	if !contains(err.Error(), "patternProperties") {
+		t.Fatalf("expected patternProperties in error, got: %v", err)
+	}
+}
+
+func TestBuildPlanRejectsNestedPatternProperties(t *testing.T) {
+	root := t.TempDir()
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"src/": map[string]any{
+				"type": "object",
+				"patternProperties": map[string]any{
+					"^.*\\.go$": map[string]any{"const": true},
+				},
+				"required": []any{},
+			},
+		},
+		"required": []any{"src/"},
+	}
+
+	// First create the src directory so we get to the nested patternProperties
+	if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	_, err := BuildPlan(schema, root)
+	if err == nil {
+		t.Fatalf("expected error for nested patternProperties")
+	}
+	if !contains(err.Error(), "patternProperties") {
+		t.Fatalf("expected patternProperties in error, got: %v", err)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr))
+}
+
+func containsAt(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestRequiredKeysTypes(t *testing.T) {
 	tests := []struct {
 		name   string

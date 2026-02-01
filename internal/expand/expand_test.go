@@ -286,6 +286,116 @@ func TestExpandCombinedConstraints(t *testing.T) {
 	}
 }
 
+func TestExpandGlobPattern(t *testing.T) {
+	dsl := map[string]any{
+		"src/": map[string]any{
+			"*.go":   true,
+			"main.c": true,
+		},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	srcSchema := got["properties"].(map[string]any)["src/"].(map[string]any)
+
+	// main.c should be in properties
+	props := srcSchema["properties"].(map[string]any)
+	if _, ok := props["main.c"]; !ok {
+		t.Fatalf("expected main.c in properties")
+	}
+
+	// *.go should be in patternProperties as regex
+	patternProps := srcSchema["patternProperties"].(map[string]any)
+	if _, ok := patternProps["^.*\\.go$"]; !ok {
+		t.Fatalf("expected ^.*\\.go$ in patternProperties, got %v", patternProps)
+	}
+
+	// main.c should be required, but *.go should not
+	required := srcSchema["required"].([]any)
+	if len(required) != 1 || required[0] != "main.c" {
+		t.Fatalf("expected only main.c in required, got %v", required)
+	}
+}
+
+func TestExpandDirectoryGlobPattern(t *testing.T) {
+	dsl := map[string]any{
+		"logs-*/": map[string]any{
+			"*.log": true,
+		},
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	// logs-*/ should be in patternProperties
+	patternProps := got["patternProperties"].(map[string]any)
+	if _, ok := patternProps["^logs-.*/$"]; !ok {
+		t.Fatalf("expected ^logs-.*/ in patternProperties, got %v", patternProps)
+	}
+
+	// Root should have no required entries (only pattern)
+	required := got["required"].([]any)
+	if len(required) != 0 {
+		t.Fatalf("expected no required entries for pattern-only schema, got %v", required)
+	}
+}
+
+func TestGlobToRegex(t *testing.T) {
+	tests := []struct {
+		glob  string
+		regex string
+	}{
+		{"*.go", "^.*\\.go$"},
+		{"test_*.py", "^test_.*\\.py$"},
+		{"file?.txt", "^file.\\.txt$"},
+		{"[abc].txt", "^[abc]\\.txt$"},
+		{"[!abc].txt", "^[^abc]\\.txt$"},
+		{"data.json", "^data\\.json$"},
+		{"logs-*/", "^logs-.*/$"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.glob, func(t *testing.T) {
+			got, err := globToRegex(tc.glob)
+			if err != nil {
+				t.Fatalf("globToRegex(%q): %v", tc.glob, err)
+			}
+			if got != tc.regex {
+				t.Fatalf("globToRegex(%q) = %q, want %q", tc.glob, got, tc.regex)
+			}
+		})
+	}
+}
+
+func TestIsGlobPattern(t *testing.T) {
+	tests := []struct {
+		key    string
+		isGlob bool
+	}{
+		{"main.go", false},
+		{"*.go", true},
+		{"test_?.py", true},
+		{"[abc].txt", true},
+		{"normal-file.txt", false},
+		{"logs-2024/", false},
+		{"logs-*/", true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.key, func(t *testing.T) {
+			got := isGlobPattern(tc.key)
+			if got != tc.isGlob {
+				t.Fatalf("isGlobPattern(%q) = %v, want %v", tc.key, got, tc.isGlob)
+			}
+		})
+	}
+}
+
 // TestExpandOutputPassesMetaSchema validates that all expanded schemas
 // conform to the meta-schema. This ensures the expansion produces
 // correctly shaped output for all entry types.
@@ -384,6 +494,31 @@ func TestExpandOutputPassesMetaSchema(t *testing.T) {
 				"link":       map[string]any{"symlink": "README.md"},
 				"src/": map[string]any{
 					"main.go": true,
+				},
+			},
+		},
+		{
+			name: "glob pattern",
+			dsl: map[string]any{
+				"src/": map[string]any{
+					"*.go": true,
+				},
+			},
+		},
+		{
+			name: "directory glob pattern",
+			dsl: map[string]any{
+				"logs-*/": map[string]any{
+					"*.log": true,
+				},
+			},
+		},
+		{
+			name: "mixed patterns and literals",
+			dsl: map[string]any{
+				"src/": map[string]any{
+					"main.go": true,
+					"*.test.go": true,
 				},
 			},
 		},

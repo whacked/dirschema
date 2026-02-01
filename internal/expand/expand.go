@@ -2,6 +2,7 @@ package expand
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -21,8 +22,9 @@ func expandDir(node map[string]any) (map[string]any, error) {
 	}
 	sort.Strings(keys)
 
-	properties := make(map[string]any, len(node))
-	required := make([]any, 0, len(node))
+	properties := make(map[string]any)
+	patternProperties := make(map[string]any)
+	required := make([]any, 0)
 
 	for _, key := range keys {
 		value := node[key]
@@ -30,22 +32,68 @@ func expandDir(node map[string]any) (map[string]any, error) {
 		var err error
 
 		if strings.HasSuffix(key, "/") {
-			schema, err = expandDirectoryValue(key, value)
+			// Directory - check if it's a pattern
+			dirName := key
+			if isGlobPattern(dirName) {
+				// Pattern directory: strip trailing / for pattern, convert to regex
+				patternBase := strings.TrimSuffix(dirName, "/")
+				regexPattern, err := globToRegex(patternBase + "/")
+				if err != nil {
+					return nil, err
+				}
+				schema, err = expandDirectoryValue(key, value)
+				if err != nil {
+					return nil, err
+				}
+				patternProperties[regexPattern] = schema
+			} else {
+				schema, err = expandDirectoryValue(key, value)
+				if err != nil {
+					return nil, err
+				}
+				properties[key] = schema
+				required = append(required, key)
+			}
 		} else {
-			schema, err = expandFileValue(key, value)
+			// File - check if it's a pattern
+			if isGlobPattern(key) {
+				regexPattern, err := globToRegex(key)
+				if err != nil {
+					return nil, err
+				}
+				schema, err = expandFileValue(key, value)
+				if err != nil {
+					return nil, err
+				}
+				patternProperties[regexPattern] = schema
+			} else {
+				schema, err = expandFileValue(key, value)
+				if err != nil {
+					return nil, err
+				}
+				properties[key] = schema
+				required = append(required, key)
+			}
 		}
-		if err != nil {
-			return nil, err
-		}
-		properties[key] = schema
-		required = append(required, key)
 	}
 
-	return map[string]any{
-		"type":       "object",
-		"properties": properties,
-		"required":   required,
-	}, nil
+	result := map[string]any{
+		"type": "object",
+	}
+
+	if len(properties) > 0 {
+		result["properties"] = properties
+	}
+	if len(patternProperties) > 0 {
+		result["patternProperties"] = patternProperties
+	}
+	if len(required) > 0 {
+		result["required"] = required
+	} else {
+		result["required"] = []any{}
+	}
+
+	return result, nil
 }
 
 func expandDirectoryValue(key string, value any) (map[string]any, error) {
@@ -202,4 +250,70 @@ func sortAnyStrings(s []any) {
 	sort.Slice(s, func(i, j int) bool {
 		return s[i].(string) < s[j].(string)
 	})
+}
+
+// isGlobPattern returns true if the key contains glob characters (* ? [)
+func isGlobPattern(key string) bool {
+	return strings.ContainsAny(key, "*?[")
+}
+
+// globToRegex converts a simple glob pattern to a regex pattern.
+// Supports: * (any chars), ? (single char), [...] (character class)
+// The result is anchored with ^ and $.
+func globToRegex(glob string) (string, error) {
+	var buf strings.Builder
+	buf.WriteString("^")
+
+	i := 0
+	for i < len(glob) {
+		c := glob[i]
+		switch c {
+		case '*':
+			buf.WriteString(".*")
+		case '?':
+			buf.WriteString(".")
+		case '[':
+			// Find matching ]
+			j := i + 1
+			if j < len(glob) && glob[j] == '!' {
+				j++
+			}
+			if j < len(glob) && glob[j] == ']' {
+				j++
+			}
+			for j < len(glob) && glob[j] != ']' {
+				j++
+			}
+			if j >= len(glob) {
+				return "", fmt.Errorf("unclosed character class in glob: %s", glob)
+			}
+			// Copy the character class as-is (it's valid regex)
+			charClass := glob[i : j+1]
+			// Convert [!...] to [^...]
+			if len(charClass) > 2 && charClass[1] == '!' {
+				buf.WriteString("[^")
+				buf.WriteString(charClass[2:])
+			} else {
+				buf.WriteString(charClass)
+			}
+			i = j
+		case '.', '+', '^', '$', '(', ')', '{', '}', '|', '\\':
+			// Escape regex metacharacters
+			buf.WriteByte('\\')
+			buf.WriteByte(c)
+		default:
+			buf.WriteByte(c)
+		}
+		i++
+	}
+
+	buf.WriteString("$")
+	pattern := buf.String()
+
+	// Validate the regex
+	if _, err := regexp.Compile(pattern); err != nil {
+		return "", fmt.Errorf("invalid glob pattern %q: %w", glob, err)
+	}
+
+	return pattern, nil
 }

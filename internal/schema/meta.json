@@ -14,12 +14,20 @@
           "type": "object",
           "additionalProperties": {"$ref": "#/$defs/entrySchema"}
         },
+        "patternProperties": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/entrySchema"}
+        },
         "required": {
           "type": "array",
           "items": {"type": "string"}
         }
       },
-      "required": ["type", "properties", "required"],
+      "required": ["type", "required"],
+      "anyOf": [
+        {"required": ["properties"]},
+        {"required": ["patternProperties"]}
+      ],
       "additionalProperties": false
     },
     "entrySchema": {

@@ -79,8 +79,15 @@ Format is auto-detected by first non-whitespace character:
 
 - Files are modeled as `true` (existence-only) or a descriptor object (future: size/sha256/content constraints).
 - Directories are JSON objects keyed by entry names, with directory entries ending in `/`.
-- The DSL is a deterministic expansion to JSON Schema; advanced JSON Schema features (e.g. `oneOf`, `patternProperties`) require full schema form.
+- The DSL is a deterministic expansion to JSON Schema.
 - Symlinks are represented as file descriptors: `"link.txt": { "symlink": "target.txt" }`.
+- **Glob patterns** are supported in DSL keys (`*`, `?`, `[...]`). They expand to `patternProperties` with regex:
+  ```yaml
+  src/:
+    "*.go": true      # matches any .go file
+    "test_*.py": true # matches test_foo.py, test_bar.py, etc.
+  ```
+  Pattern entries are not required (only literal entries are required). Patterns cannot be hydrated.
 - DSL list form is supported:\n+\n+```yaml\n+src/:\n+  - main.go\n+  - link:\n+      symlink: main.go\n+```\n+\n+List entries must be either strings (file names) or single-key maps; duplicate names are rejected case-insensitively.
 
 ## Development

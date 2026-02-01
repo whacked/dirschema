@@ -38,6 +38,14 @@ func BuildPlan(schema map[string]any, root string) (Plan, error) {
 }
 
 func collectOps(schema map[string]any, root, rel string) ([]Op, error) {
+	// Check for patternProperties - cannot hydrate patterns
+	if _, hasPatterns := schema["patternProperties"]; hasPatterns {
+		if rel == "" {
+			return nil, fmt.Errorf("cannot hydrate schema with patternProperties at root level")
+		}
+		return nil, fmt.Errorf("cannot hydrate schema with patternProperties at %q", rel)
+	}
+
 	props, _ := schema["properties"].(map[string]any)
 	required := requiredKeys(schema)
 
