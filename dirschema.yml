@@ -6,7 +6,6 @@
 - cmd/:
     - dirschema/:
         - main.go
-- dirschema
 - docs/:
     - adr/:
         - 0001-jsonschema-library.md
