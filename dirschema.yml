@@ -9,6 +9,8 @@
 - docs/:
     - adr/:
         - 0001-jsonschema-library.md
+    - behavior/:
+        - 0001-jsonschema-library.md
 - dirschema.yml
 - go.mod
 - go.sum
