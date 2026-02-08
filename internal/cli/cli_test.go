@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -85,6 +86,51 @@ func TestExpandCommandMixedSpec(t *testing.T) {
 	}
 	if stderr.Len() == 0 {
 		t.Fatalf("expected stderr output")
+	}
+}
+
+// Test 12: End-to-end validate with symlinked subdir
+func TestValidateWithSymlinkedSubdir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink behavior varies on windows")
+	}
+
+	// Create directory structure:
+	//   root/src/main.go
+	//   root/real-lib/util.go
+	//   root/lib -> root/real-lib (symlink)
+	root := t.TempDir()
+	srcDir := filepath.Join(root, "src")
+	if err := os.MkdirAll(srcDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, srcDir, "main.go", "package main")
+
+	realLib := filepath.Join(root, "real-lib")
+	if err := os.MkdirAll(realLib, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	writeFile(t, realLib, "util.go", "package lib")
+
+	if err := os.Symlink(realLib, filepath.Join(root, "lib")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	// DSL spec: expects lib/ as a directory with util.go
+	specDir := t.TempDir()
+	specPath := writeFile(t, specDir, "spec.yaml", `
+src/:
+  main.go: true
+lib/:
+  util.go: true
+`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	exitCode := Run([]string{"validate", "--root", root, specPath}, &stdout, &stderr)
+	if exitCode != ExitSuccess {
+		t.Fatalf("exit code: got %d want %d (stderr=%q)", exitCode, ExitSuccess, stderr.String())
 	}
 }
 

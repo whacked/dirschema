@@ -162,7 +162,7 @@ func runValidate(args []string, stdout, stderr io.Writer) int {
 	}
 
 	walkOpts := instance.ScanAttributes(schema)
-	inst, err := fswalk.Walk(root, walkOpts)
+	inst, err := fswalk.WalkWithSchema(root, walkOpts, schema)
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to walk filesystem: %v\n", err)
 		return ExitConfigError
@@ -216,6 +216,7 @@ func runExport(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	rootFlag := fs.String("root", "", "root directory")
+	followSymlinks := fs.Bool("follow-symlinks", false, "follow symlinks instead of recording them")
 	if err := fs.Parse(args); err != nil {
 		return ExitConfigError
 	}
@@ -239,7 +240,11 @@ func runExport(args []string, stdout, stderr io.Writer) int {
 		return ExitConfigError
 	}
 
-	inst, err := fswalk.Walk(root, fswalk.Options{SymlinkPolicy: fswalk.SymlinkRecord})
+	policy := fswalk.SymlinkRecord
+	if *followSymlinks {
+		policy = fswalk.SymlinkFollow
+	}
+	inst, err := fswalk.Walk(root, fswalk.Options{SymlinkPolicy: policy})
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to walk filesystem: %v\n", err)
 		return ExitConfigError
@@ -336,7 +341,7 @@ func runHydrate(args []string, stdout, stderr io.Writer) int {
 	}
 
 	walkOpts := instance.ScanAttributes(schema)
-	inst, err := fswalk.Walk(root, walkOpts)
+	inst, err := fswalk.WalkWithSchema(root, walkOpts, schema)
 	if err != nil {
 		fmt.Fprintf(stderr, "failed to walk filesystem: %v\n", err)
 		return ExitConfigError
@@ -433,7 +438,7 @@ func printUsage(w io.Writer) {
 
 commands:
   expand <spec>
-  export [--root DIR]
+  export [--root DIR] [--follow-symlinks]
   validate [--root DIR] [--format text|json] [--print-instance] <spec>
   hydrate [--root DIR] [--format text|json] [--dry-run] <spec>
   version
