@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "README.md": {
+      "oneOf": [
+        {"const": true},
+        {"type": "object"}
+      ]
+    },
+    "src/": {
+      "type": "object",
+      "properties": {
+        "main.go": {
+          "oneOf": [
+            {"const": true},
+            {"type": "object"}
+          ]
+        }
+      },
+      "patternProperties": {
+        "^.*\\.go$": {
+          "oneOf": [
+            {"const": true},
+            {"type": "object"}
+          ]
+        }
+      },
+      "required": ["main.go"],
+      "allOf": [
+        {"not": {"propertyNames": {"not": {"pattern": "^.*\\.go$"}}}}
+      ]
+    }
+  },
+  "required": ["README.md", "src/"]
+}

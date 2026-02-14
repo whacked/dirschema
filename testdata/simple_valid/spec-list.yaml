@@ -1,0 +1,5 @@
+- README.md
+- src/:
+    - main.go
+    - "*.go"
+    - "*_test.go"

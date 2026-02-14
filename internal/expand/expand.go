@@ -93,6 +93,52 @@ func expandDir(node map[string]any) (map[string]any, error) {
 		result["required"] = []any{}
 	}
 
+	// Require at least one matching entry for each glob pattern.
+	//
+	// JSON Schema's patternProperties only constrains properties whose names
+	// happen to match — it does NOT require any such property to exist.
+	// When a user writes "*.go": true in the DSL, they expect at least one
+	// .go file to be present, so we need an additional constraint.
+	//
+	// Draft-07 has no "contains" for object property names. We use a
+	// double-negation trick instead:
+	//
+	//   { "not": { "propertyNames": { "not": { "pattern": R } } } }
+	//
+	// Reading inside-out:
+	//   1. { "not": { "pattern": R } }
+	//        — matches a name that does NOT match regex R
+	//   2. { "propertyNames": <1> }
+	//        — valid when ALL property names fail to match R
+	//        (i.e. zero matching entries)
+	//   3. { "not": <2> }
+	//        — negates that: valid when it is NOT the case that
+	//        zero entries match, i.e. at least one entry matches R
+	//
+	// Each glob pattern gets one such constraint; they are combined in allOf
+	// so every pattern must have at least one matching entry.
+	if len(patternProperties) > 0 {
+		patternKeys := make([]string, 0, len(patternProperties))
+		for k := range patternProperties {
+			patternKeys = append(patternKeys, k)
+		}
+		sort.Strings(patternKeys)
+
+		allOfEntries := make([]any, 0, len(patternKeys))
+		for _, pattern := range patternKeys {
+			allOfEntries = append(allOfEntries, map[string]any{
+				"not": map[string]any{
+					"propertyNames": map[string]any{
+						"not": map[string]any{
+							"pattern": pattern,
+						},
+					},
+				},
+			})
+		}
+		result["allOf"] = allOfEntries
+	}
+
 	return result, nil
 }
 

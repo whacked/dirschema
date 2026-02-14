@@ -318,6 +318,66 @@ func TestExpandGlobPattern(t *testing.T) {
 	if len(required) != 1 || required[0] != "main.c" {
 		t.Fatalf("expected only main.c in required, got %v", required)
 	}
+
+	// *.go glob should produce an allOf constraint requiring at least one match
+	allOf, ok := srcSchema["allOf"].([]any)
+	if !ok || len(allOf) != 1 {
+		t.Fatalf("expected allOf with 1 entry, got %v", srcSchema["allOf"])
+	}
+	notEntry := allOf[0].(map[string]any)["not"].(map[string]any)
+	propNames := notEntry["propertyNames"].(map[string]any)
+	innerNot := propNames["not"].(map[string]any)
+	if innerNot["pattern"] != "^.*\\.go$" {
+		t.Fatalf("expected pattern ^.*\\.go$, got %v", innerNot["pattern"])
+	}
+}
+
+func TestExpandGlobMultiplePatternsAllOf(t *testing.T) {
+	dsl := map[string]any{
+		"*.go":      true,
+		"*.test.go": true,
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	allOf, ok := got["allOf"].([]any)
+	if !ok || len(allOf) != 2 {
+		t.Fatalf("expected allOf with 2 entries, got %v", got["allOf"])
+	}
+
+	// Collect the patterns from the allOf entries
+	patterns := make(map[string]bool)
+	for _, entry := range allOf {
+		notEntry := entry.(map[string]any)["not"].(map[string]any)
+		propNames := notEntry["propertyNames"].(map[string]any)
+		innerNot := propNames["not"].(map[string]any)
+		patterns[innerNot["pattern"].(string)] = true
+	}
+
+	if !patterns["^.*\\.go$"] {
+		t.Fatalf("missing pattern ^.*\\.go$")
+	}
+	if !patterns["^.*\\.test\\.go$"] {
+		t.Fatalf("missing pattern ^.*\\.test\\.go$")
+	}
+}
+
+func TestExpandNoGlobsNoAllOf(t *testing.T) {
+	dsl := map[string]any{
+		"main.go": true,
+	}
+
+	got, err := ExpandDSL(dsl)
+	if err != nil {
+		t.Fatalf("ExpandDSL: %v", err)
+	}
+
+	if _, ok := got["allOf"]; ok {
+		t.Fatalf("expected no allOf when there are no globs, got %v", got["allOf"])
+	}
 }
 
 func TestExpandDirectoryGlobPattern(t *testing.T) {
@@ -342,6 +402,25 @@ func TestExpandDirectoryGlobPattern(t *testing.T) {
 	required := got["required"].([]any)
 	if len(required) != 0 {
 		t.Fatalf("expected no required entries for pattern-only schema, got %v", required)
+	}
+
+	// Root allOf should require at least one logs-*/ match
+	allOf, ok := got["allOf"].([]any)
+	if !ok || len(allOf) != 1 {
+		t.Fatalf("expected root allOf with 1 entry, got %v", got["allOf"])
+	}
+	notEntry := allOf[0].(map[string]any)["not"].(map[string]any)
+	propNames := notEntry["propertyNames"].(map[string]any)
+	innerNot := propNames["not"].(map[string]any)
+	if innerNot["pattern"] != "^logs-.*/$" {
+		t.Fatalf("expected pattern ^logs-.*/$, got %v", innerNot["pattern"])
+	}
+
+	// Inner schema should also have allOf for *.log
+	innerSchema := patternProps["^logs-.*/$"].(map[string]any)
+	innerAllOf, ok := innerSchema["allOf"].([]any)
+	if !ok || len(innerAllOf) != 1 {
+		t.Fatalf("expected inner allOf with 1 entry, got %v", innerSchema["allOf"])
 	}
 }
 

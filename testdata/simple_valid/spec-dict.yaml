@@ -1,0 +1,4 @@
+README.md: true
+src/:
+  main.go: true
+  "*.go": true

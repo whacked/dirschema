@@ -40,3 +40,21 @@ update-version:
 
 build:
   in: ./bin/dirschema
+
+
+test-spec-files:
+  in:
+    root: ./testdata/simple_valid/root/
+    dsl_dict: ./testdata/simple_valid/spec-dict.yaml
+    dsl_list: ./testdata/simple_valid/spec-list.yaml
+    exact_json: ./testdata/simple_valid/spec.json
+    pattern_json: ./testdata/simple_valid/spec-raw-schema.json
+  run: |
+    echo === ${in.dsl_dict} ===
+    dirschema validate --root ${in.root} ${in.dsl_dict}
+    echo === ${in.dsl_list} ===
+    dirschema validate --root ${in.root} ${in.dsl_list}
+    echo === ${in.exact_json} ===
+    dirschema validate --root ${in.root} ${in.exact_json}
+    echo === ${in.pattern_json} ===
+    dirschema validate --root ${in.root} ${in.pattern_json}
