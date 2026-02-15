@@ -49,6 +49,8 @@ test-spec-files:
     dsl_list: ./testdata/simple_valid/spec-list.yaml
     exact_json: ./testdata/simple_valid/spec.json
     pattern_json: ./testdata/simple_valid/spec-raw-schema.json
+    fail_root: ./testdata/invalid_glob_no_match/root/
+    fail_spec: ./testdata/invalid_glob_no_match/spec.yaml
   run: |
     echo === ${in.dsl_dict} ===
     dirschema validate --root ${in.root} ${in.dsl_dict}
@@ -58,3 +60,10 @@ test-spec-files:
     dirschema validate --root ${in.root} ${in.exact_json}
     echo === ${in.pattern_json} ===
     dirschema validate --root ${in.root} ${in.pattern_json}
+    echo === ${in.fail_spec} \(expect failure\) ===
+    if dirschema validate --root ${in.fail_root} ${in.fail_spec}; then
+      echo "FAIL: expected validation error for glob with no match"
+      exit 1
+    else
+      echo "OK: correctly rejected (glob has no match)"
+    fi

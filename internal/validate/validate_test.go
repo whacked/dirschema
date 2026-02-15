@@ -125,6 +125,27 @@ func TestValidateGlobPresenceConstraint(t *testing.T) {
 			}
 		})
 	}
+
+	// Verify error message rewriting for the not-not pattern
+	t.Run("error message is rewritten", func(t *testing.T) {
+		res, err := Validate(schema, map[string]any{"main.c": true})
+		if err != nil {
+			t.Fatalf("Validate: %v", err)
+		}
+		found := false
+		for _, e := range res.Errors {
+			if e.Keyword == "glob-presence" {
+				found = true
+				want := "no entries matching pattern ^.*\\.go$"
+				if e.Message != want {
+					t.Fatalf("message = %q, want %q", e.Message, want)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("expected glob-presence error, got %v", res.Errors)
+		}
+	})
 }
 
 func TestValidateMixedLiteralAndGlobPresence(t *testing.T) {

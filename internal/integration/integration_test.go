@@ -38,6 +38,22 @@ func TestValidateIntegrationInvalid(t *testing.T) {
 	}
 }
 
+func TestValidateIntegrationGlobNoMatch(t *testing.T) {
+	spec := fixturePath(t, "invalid_glob_no_match", "spec.yaml")
+	root := fixturePath(t, "invalid_glob_no_match", "root")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	exitCode := cli.Run([]string{"validate", "--root", root, spec}, &stdout, &stderr)
+	if exitCode != cli.ExitValidation {
+		t.Fatalf("exit code: got %d want %d (stderr=%q)", exitCode, cli.ExitValidation, stderr.String())
+	}
+	if stderr.Len() == 0 {
+		t.Fatalf("expected stderr output for unmatched glob")
+	}
+}
+
 func TestHydrateIntegration(t *testing.T) {
 	spec := fixturePath(t, "hydrate_empty", "spec.json")
 	root := t.TempDir()
